@@ -45,57 +45,64 @@ M2_RANGE = "Module_2!A2:E2"
 # FETCH LIVE SENSOR DATA WITH CLEANING
 # ----------------------------------------------------------
 def fetch_sheet_data(sheet_range):
+    from datetime import datetime
+
     creds = get_credentials()
     service = build("sheets", "v4", credentials=creds)
 
-    # Read full sheet
+    # Fetch entire sheet (module)
     result = service.spreadsheets().values().get(
         spreadsheetId=SPREADSHEET_ID,
-        range=sheet_range.replace("A2:D2", "A:D")
+        range=sheet_range.replace("A2:D2", "A2:D")   # fetch all rows
     ).execute()
 
     values = result.get("values", [])
-    if not values or len(values) < 2:
-        return empty_response()
+    if not values:
+        return {
+            "current_temp": "-",
+            "current_hum": "-",
+            "avg_temp": "-",
+            "avg_hum": "-"
+        }
 
-    # Skip header
-    rows = values[1:]
+    # Today's date string
+    today = datetime.now().strftime("%-m/%-d/%Y")  # Example → "3/2/2026"
 
-    # Find LAST row that has valid temp + humidity
-    last_valid = None
-    for row in reversed(rows):
-        # row: [timestamp, device, temp, hum]
-        if len(row) >= 4 and row[2] != "" and row[3] != "":
-            last_valid = row
-            break
+    temps = []
+    hums = []
+    latest_temp = "-"
+    latest_hum = "-"
 
-    if not last_valid:
-        return empty_response()
+    for row in values:
+        if len(row) < 4:
+            continue
 
-    temp = last_valid[2]
-    hum = last_valid[3]
+        timestamp = row[0]    # "3/2/2026 23:35"
+        device     = row[1]
+        temp       = row[2]
+        hum        = row[3]
 
-    # formatting helper
-    def fmt(x, unit):
-        try: 
-            return f"{round(float(x),1)}{unit}"
-        except:
-            return f"-{unit}"
+        # Filter today's rows
+        if timestamp.startswith(today):
+            try:
+                temps.append(float(temp))
+                hums.append(float(hum))
+            except:
+                pass
+
+        # Always track the latest row
+        latest_temp = temp
+        latest_hum = hum
+
+    # Calculate averages
+    avg_temp = round(sum(temps)/len(temps), 1) if temps else "-"
+    avg_hum  = round(sum(hums)/len(hums), 1) if hums else "-"
 
     return {
-        "current_temp": fmt(temp, "°C"),
-        "current_hum": fmt(hum, "%"),
-        "avg_temp": fmt(temp, "°C"),   # for now same as current
-        "avg_hum": fmt(hum, "%")
-    }
-
-
-def empty_response():
-    return {
-        "current_temp": "-°C",
-        "current_hum": "-%",
-        "avg_temp": "-°C",
-        "avg_hum": "-%"
+        "current_temp": latest_temp,
+        "current_hum": latest_hum,
+        "avg_temp": avg_temp,
+        "avg_hum": avg_hum
     }
 
     # ---------------- SAFE COLUMN EXTRACTION ----------------
