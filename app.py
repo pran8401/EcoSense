@@ -50,10 +50,11 @@ def fetch_sheet_data(sheet_range):
     creds = get_credentials()
     service = build("sheets", "v4", credentials=creds)
 
-    # Fetch entire sheet (module)
+    # Get entire sheet data for that module
+    full_range = sheet_range.replace("A2:D2", "A2:D")
     result = service.spreadsheets().values().get(
         spreadsheetId=SPREADSHEET_ID,
-        range=sheet_range.replace("A2:D2", "A2:D")   # fetch all rows
+        range=full_range
     ).execute()
 
     values = result.get("values", [])
@@ -65,42 +66,53 @@ def fetch_sheet_data(sheet_range):
             "avg_hum": "-"
         }
 
-    # Today's date string
-    today = datetime.now().strftime("%-m/%-d/%Y")  # Example → "3/2/2026"
+    # ------------------------------
+    # CURRENT DATA (KEEPING AS-IS)
+    # ------------------------------
+    latest = values[-1]
+    current_temp = latest[2] if len(latest) > 2 else "-"
+    current_hum = latest[3] if len(latest) > 3 else "-"
+
+    # ------------------------------
+    # TODAY'S AVERAGE (FIXED)
+    # ------------------------------
+    today = datetime.now().date()
 
     temps = []
     hums = []
-    latest_temp = "-"
-    latest_hum = "-"
 
     for row in values:
         if len(row) < 4:
             continue
 
-        timestamp = row[0]    # "3/2/2026 23:35"
-        device     = row[1]
-        temp       = row[2]
-        hum        = row[3]
+        timestamp = row[0]
 
-        # Filter today's rows
-        if timestamp.startswith(today):
+        # Try multiple timestamp formats
+        parsed = None
+        for fmt in ("%m/%d/%Y %H:%M", "%-m/%-d/%Y %H:%M", "%Y-%m-%dT%H:%M:%S.%fZ"):
             try:
-                temps.append(float(temp))
-                hums.append(float(hum))
+                parsed = datetime.strptime(timestamp, fmt)
+                break
             except:
                 pass
 
-        # Always track the latest row
-        latest_temp = temp
-        latest_hum = hum
+        if not parsed:
+            continue
 
-    # Calculate averages
+        # Only today's rows
+        if parsed.date() == today:
+            try:
+                temps.append(float(row[2]))
+                hums.append(float(row[3]))
+            except:
+                continue
+
     avg_temp = round(sum(temps)/len(temps), 1) if temps else "-"
-    avg_hum  = round(sum(hums)/len(hums), 1) if hums else "-"
+    avg_hum = round(sum(hums)/len(hums), 1) if hums else "-"
 
     return {
-        "current_temp": latest_temp,
-        "current_hum": latest_hum,
+        "current_temp": current_temp,
+        "current_hum": current_hum,
         "avg_temp": avg_temp,
         "avg_hum": avg_hum
     }
