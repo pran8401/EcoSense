@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EcoSense Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+
+<!-- ================= SIDEBAR ================= -->
+<aside class="sidebar">
+    <div class="logo-text">EcoSense Dashboard</div>
+
+    <ul class="nav-links">
+        <li><a class="nav-link active" onclick="switchTab('live', this)">Live</a></li>
+        <li><a class="nav-link" onclick="switchTab('analytics', this)">Data Analytics</a></li>
+    </ul>
+</aside>
+
+
+<!-- ================= MAIN CONTENT ================= -->
+<main class="main-content">
+
+<!-- PAGE TITLE -->
+<h1 id="page-title" class="page-title">
+    Live <span id="live-dot" class="live-dot"></span>
+</h1>
+
+
+
+<!-- =================================================== -->
+<!-- ======================== LIVE ===================== -->
+<!-- =================================================== -->
+
+<section id="live" class="section active">
+
+<div class="live-grid">
+
+    <!-- MODULE 1 -->
+    <div class="module-card">
+        <h3>Module 1</h3>
+        <img id="live-m1-img">
+
+        <div class="stats-grid">
+            <div class="stat-box">Current Temp: <span id="m1-ctemp">-</span></div>
+            <div class="stat-box">Current Hum: <span id="m1-chum">-</span></div>
+            <div class="stat-box">Avg Temp: <span id="m1-atemp">-</span></div>
+            <div class="stat-box">Avg Hum: <span id="m1-ahum">-</span></div>
+        </div>
+    </div>
+
+    <!-- MODULE 2 -->
+    <div class="module-card">
+        <h3>Module 2</h3>
+        <img id="live-m2-img">
+
+        <div class="stats-grid">
+            <div class="stat-box">Current Temp: <span id="m2-ctemp">-</span></div>
+            <div class="stat-box">Current Hum: <span id="m2-chum">-</span></div>
+            <div class="stat-box">Avg Temp: <span id="m2-atemp">-</span></div>
+            <div class="stat-box">Avg Hum: <span id="m2-ahum">-</span></div>
+        </div>
+    </div>
+
+</div>
+
+<div class="refresh-container">
+    <button class="refresh-btn" onclick="loadLive()">Refresh</button>
+    <div class="last-updated">Last Updated: <span id="updated-time">--</span></div>
+</div>
+
+</section>
+
+
+
+
+<!-- =================================================== -->
+<!-- =================== ANALYTICS ===================== -->
+<!-- =================================================== -->
+
+<section id="analytics" class="section">
+
+<h1 class="page-title"></h1>
+
+
+<!-- ================= MODULE 1 ================= -->
+<h2 class="module-title">Module 1</h2>
+
+<div class="analytics-grid">
+
+    <div>
+        <img src="/static/graph_2026-01-14_m1_temp.png">
+        <div class="stats-analytics-grid">
+            <div class="stat-analytic-box">Max Temp: 8.7°C</div>
+            <div class="stat-analytic-box">Min Temp: 6.9°C</div>
+            <div class="stat-analytic-box">Avg Temp: 7.6°C</div>
+            <div class="stat-analytic-box">Mean Temp: 7.6°C</div>
+        </div>
+    </div>
+
+    <div>
+        <img src="/static/graph_2026-01-14_m1_hum.png">
+        <div class="stats-analytics-grid">
+            <div class="stat-analytic-box">Max Hum: 100%</div>
+            <div class="stat-analytic-box">Min Hum: 89%</div>
+            <div class="stat-analytic-box">Avg Hum: 95%</div>
+            <div class="stat-analytic-box">Mean Hum: 95%</div>
+        </div>
+    </div>
+
+</div>
+
+
+
+
+<!-- ================= MODULE 2 ================= -->
+<h2 class="module-title">Module 2</h2>
+
+<div class="analytics-grid">
+
+    <div>
+        <img src="/static/graph_2026-01-14_m2_temp.png">
+        <div class="stats-analytics-grid">
+            <div class="stat-analytic-box">Max Temp: 8.8°C</div>
+            <div class="stat-analytic-box">Min Temp: 7.0°C</div>
+            <div class="stat-analytic-box">Avg Temp: 7.7°C</div>
+            <div class="stat-analytic-box">Mean Temp: 7.7°C</div>
+        </div>
+    </div>
+
+    <div>
+        <img src="/static/graph_2026-01-14_m2_hum.png">
+        <div class="stats-analytics-grid">
+            <div class="stat-analytic-box">Max Hum: 98%</div>
+            <div class="stat-analytic-box">Min Hum: 92%</div>
+            <div class="stat-analytic-box">Avg Hum: 96%</div>
+            <div class="stat-analytic-box">Mean Hum: 96%</div>
+        </div>
+    </div>
+
+</div>
+
+
+
+
+
+<!-- ================= MODULE 3 ================= -->
+<h2 class="module-title">Module 3</h2>
+
+<div class="analytics-grid">
+
+    <div>
+        <img src="/static/graph_2026-01-14_m3_temp.png">
+        <div class="stats-analytics-grid">
+            <div class="stat-analytic-box">Max Temp: 7.9°C</div>
+            <div class="stat-analytic-box">Min Temp: 6.8°C</div>
+            <div class="stat-analytic-box">Avg Temp: 7.3°C</div>
+            <div class="stat-analytic-box">Mean Temp: 7.3°C</div>
+        </div>
+    </div>
+
+    <div>
+        <img src="/static/graph_2026-01-14_m3_hum.png">
+        <div class="stats-analytics-grid">
+            <div class="stat-analytic-box">Max Hum: 97%</div>
+            <div class="stat-analytic-box">Min Hum: 90%</div>
+            <div class="stat-analytic-box">Avg Hum: 94%</div>
+            <div class="stat-analytic-box">Mean Hum: 94%</div>
+        </div>
+    </div>
+
+</div>
+
+</section>
+
+</main>
+
+
+
+<!-- ============== JAVASCRIPT ====================== -->
+
+<script>
+
+function switchTab(id, el){
+    document.querySelectorAll('.nav-link').forEach(x => x.classList.remove('active'));
+    el.classList.add('active');
+
+    document.querySelectorAll('.section').forEach(x => x.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+
+    const pageTitle = document.getElementById("page-title");
+
+    if(id === "live"){
+        pageTitle.innerHTML = 'Live <span id="live-dot" class="live-dot"></span>';
+        loadLive();
+    } else {
+        pageTitle.innerHTML = 'Data Analytics';
+    }
+}
+
+
+function formatTime() {
+    const d = new Date();
+    return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+
+
+async function loadLive(){
+
+    const res = await fetch("/api/live-data");
+    const data = await res.json();
+
+    const m1 = data.modules["1"];
+    const m2 = data.modules["2"];
+
+    document.getElementById("m1-ctemp").innerText = m1.current_temp + "°C";
+    document.getElementById("m1-chum").innerText = m1.current_hum + "%";
+    document.getElementById("m1-atemp").innerText = m1.avg_temp + "°C";
+    document.getElementById("m1-ahum").innerText = m1.avg_hum + "%";
+
+    document.getElementById("m2-ctemp").innerText = m2.current_temp + "°C";
+    document.getElementById("m2-chum").innerText = m2.current_hum + "%";
+    document.getElementById("m2-atemp").innerText = m2.avg_temp + "°C";
+    document.getElementById("m2-ahum").innerText = m2.avg_hum + "%";
+
+    document.getElementById("live-m1-img").src =
+        "/api/live-image?folder=1YvNkyQUa3cANtHr1roleh0cYdqn3yC4K&t=" + Date.now();
+
+    document.getElementById("live-m2-img").src =
+        "/api/live-image?folder=1JHvGs6RtaeaDzwthXgSnBpkxytVMFciO&t=" + Date.now();
+
+    document.getElementById("updated-time").innerText = formatTime();
+}
+
+loadLive();
+
+</script>
+
+</body>
+</html>
