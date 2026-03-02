@@ -48,30 +48,40 @@ def fetch_sheet_data(sheet_range):
     creds = get_credentials()
     service = build("sheets", "v4", credentials=creds)
 
+    # Read entire sheet A:D
     result = service.spreadsheets().values().get(
         spreadsheetId=SPREADSHEET_ID,
-        range=sheet_range
+        range=sheet_range.replace("A2:D2", "A:D")  # read full columns
     ).execute()
 
     values = result.get("values", [])
-    if not values:
+
+    if not values or len(values) < 2:
         return {"current_temp": "-", "current_hum": "-", "avg_temp": "-", "avg_hum": "-"}
 
-    row = values[0]
+    # skip header row (row0), data starts from row1 onward
+    data_rows = values[1:]
 
-    # ---------------- CLEANING FUNCTION ----------------
-    # Removes words, % symbols, timestamps etc.
-    def clean(x):
-        if not x:
-            return "-"
-        return (
-            x.replace("Module_1", "")
-             .replace("Module_2", "")
-             .replace("Module_3", "")
-             .replace("%", "")
-             .replace("°C", "")
-             .strip()
-        )
+    # pick the last non-empty row
+    last = data_rows[-1]
+
+    # Protect against missing values
+    temp = last[2] if len(last) > 2 else "-"
+    hum = last[3] if len(last) > 3 else "-"
+
+    # Format properly
+    def fmt(x, unit):
+        try:
+            return f"{round(float(x), 1)}{unit}"
+        except:
+            return f"-{unit}"
+
+    return {
+        "current_temp": fmt(temp, "°C"),
+        "current_hum": fmt(hum, "%"),
+        "avg_temp": fmt(temp, "°C"),   # same as current for now
+        "avg_hum": fmt(hum, "%")
+    }
 
     # ---------------- SAFE COLUMN EXTRACTION ----------------
     # row = [Timestamp, Current Temp, Current Hum, Avg Temp, Avg Hum]
