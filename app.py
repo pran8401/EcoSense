@@ -48,39 +48,54 @@ def fetch_sheet_data(sheet_range):
     creds = get_credentials()
     service = build("sheets", "v4", credentials=creds)
 
-    # Read entire sheet A:D
+    # Read full sheet
     result = service.spreadsheets().values().get(
         spreadsheetId=SPREADSHEET_ID,
-        range=sheet_range.replace("A2:D2", "A:D")  # read full columns
+        range=sheet_range.replace("A2:D2", "A:D")
     ).execute()
 
     values = result.get("values", [])
-
     if not values or len(values) < 2:
-        return {"current_temp": "-", "current_hum": "-", "avg_temp": "-", "avg_hum": "-"}
+        return empty_response()
 
-    # skip header row (row0), data starts from row1 onward
-    data_rows = values[1:]
+    # Skip header
+    rows = values[1:]
 
-    # pick the last non-empty row
-    last = data_rows[-1]
+    # Find LAST row that has valid temp + humidity
+    last_valid = None
+    for row in reversed(rows):
+        # row: [timestamp, device, temp, hum]
+        if len(row) >= 4 and row[2] != "" and row[3] != "":
+            last_valid = row
+            break
 
-    # Protect against missing values
-    temp = last[2] if len(last) > 2 else "-"
-    hum = last[3] if len(last) > 3 else "-"
+    if not last_valid:
+        return empty_response()
 
-    # Format properly
+    temp = last_valid[2]
+    hum = last_valid[3]
+
+    # formatting helper
     def fmt(x, unit):
-        try:
-            return f"{round(float(x), 1)}{unit}"
+        try: 
+            return f"{round(float(x),1)}{unit}"
         except:
             return f"-{unit}"
 
     return {
         "current_temp": fmt(temp, "°C"),
         "current_hum": fmt(hum, "%"),
-        "avg_temp": fmt(temp, "°C"),   # same as current for now
+        "avg_temp": fmt(temp, "°C"),   # for now same as current
         "avg_hum": fmt(hum, "%")
+    }
+
+
+def empty_response():
+    return {
+        "current_temp": "-°C",
+        "current_hum": "-%",
+        "avg_temp": "-°C",
+        "avg_hum": "-%"
     }
 
     # ---------------- SAFE COLUMN EXTRACTION ----------------
