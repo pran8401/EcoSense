@@ -1,125 +1,141 @@
-import io
-import pandas as pd
-from flask import Flask, send_file, render_template, request, abort, jsonify
+from flask import Flask, jsonify, request, send_file, render_template
+import json
+import os
+from io import BytesIO
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+import requests
+import datetime
 
 app = Flask(__name__)
 
-SERVICE_ACCOUNT_FILE = "service_account.json"
-
-# Drive folders
-DRIVE_FOLDER_M1 = "1YvNkyQUa3cANtHr1roleh0cYdqn3yC4K"
-DRIVE_FOLDER_M2 = "1JHvGs6RtaeaDzwthXgSnBpkxytVMFciO"
-
-# Module Google Sheet URLs
-MODULE_1_URL = "https://docs.google.com/spreadsheets/d/18jvq-xsOd6n4LL8dV-pRKFREANpFNlcptxAZbHlBylc/gviz/tq?tqx=out:csv&gid=0"
-MODULE_2_URL = "https://docs.google.com/spreadsheets/d/18jvq-xsOd6n4LL8dV-pRKFREANpFNlcptxAZbHlBylc/gviz/tq?tqx=out:csv&gid=42078347"
-
-
-# ================= GOOGLE AUTH ==================
-
+# -----------------------------------------
+# GOOGLE AUTH (Render Compatible)
+# -----------------------------------------
 def get_credentials():
-    return service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE,
-        scopes=["https://www.googleapis.com/auth/drive"]
+    google_creds_json = os.environ.get("GOOGLE_CREDENTIALS")
+
+    if not google_creds_json:
+        raise Exception("GOOGLE_CREDENTIALS environment variable missing!")
+
+    google_creds = json.loads(google_creds_json)
+
+    return service_account.Credentials.from_service_account_info(
+        google_creds,
+        scopes=[
+            "https://www.googleapis.com/auth/drive",
+            "https://www.googleapis.com/auth/spreadsheets.readonly"
+        ]
     )
 
 
-def drive_service():
-    return build("drive", "v3", credentials=get_credentials())
+# -----------------------------------------
+# GOOGLE SHEETS CONFIG
+# -----------------------------------------
+SPREADSHEET_ID = "18jvq-xsOd6n4LL8dV-pRKFREANpFNlcptxAZbHlBylc"  # your sheet
+M1_RANGE = "Module_1!A2:D2"
+M2_RANGE = "Module_2!A2:D2"
 
 
-# ================= DRIVE IMAGE FETCH ==================
+# -----------------------------------------
+# FETCH LIVE SENSOR DATA
+# -----------------------------------------
+def fetch_sheet_data(sheet_range):
+    creds = get_credentials()
+    service = build("sheets", "v4", credentials=creds)
+    sheet = service.spreadsheets()
 
-def get_latest_image(folder_id):
-    service = drive_service()
-
-    results = service.files().list(
-        q=f"'{folder_id}' in parents and mimeType contains 'image'",
-        orderBy="createdTime desc",
-        pageSize=1,
-        fields="files(id,name)"
+    result = sheet.values().get(
+        spreadsheetId=SPREADSHEET_ID,
+        range=sheet_range
     ).execute()
 
-    files = results.get("files", [])
-    if not files:
-        abort(404, "No images found")
+    values = result.get("values", [])
 
-    data = service.files().get_media(fileId=files[0]["id"]).execute()
-    return io.BytesIO(data)
+    if not values:
+        return {"current_temp": "-", "current_hum": "-", "avg_temp": "-", "avg_hum": "-"}
 
-
-# ================= LOAD MODULE SHEETS ==================
-
-def load_module(url):
-    df = pd.read_csv(url)
-    df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce")
-    df = df.dropna(subset=["Timestamp"])
-    df["DATE_ONLY"] = df["Timestamp"].dt.strftime("%Y-%m-%d")
-    return df
+    row = values[0]
+    return {
+        "current_temp": row[0],
+        "current_hum": row[1],
+        "avg_temp": row[2],
+        "avg_hum": row[3]
+    }
 
 
-# ================= LIVE API ==================
-
+# -----------------------------------------
+# LIVE DATA API
+# -----------------------------------------
 @app.route("/api/live-data")
-def api_live():
-
-    df1 = load_module(MODULE_1_URL)
-    df2 = load_module(MODULE_2_URL)
-
-    today1 = df1["DATE_ONLY"].max()
-    today2 = df2["DATE_ONLY"].max()
-
-    d1 = df1[df1["DATE_ONLY"] == today1]
-    d2 = df2[df2["DATE_ONLY"] == today2]
-
-    last1 = d1.sort_values("Timestamp").iloc[-1]
-    last2 = d2.sort_values("Timestamp").iloc[-1]
+def live_data():
+    module1 = fetch_sheet_data(M1_RANGE)
+    module2 = fetch_sheet_data(M2_RANGE)
 
     return jsonify({
         "modules": {
-            "1": {
-                "current_temp": last1["Temperature"],
-                "current_hum": last1["Humidity"],
-                "avg_temp": round(d1["Temperature"].mean(), 2),
-                "avg_hum": round(d1["Humidity"].mean(), 2)
-            },
-            "2": {
-                "current_temp": last2["Temperature"],
-                "current_hum": last2["Humidity"],
-                "avg_temp": round(d2["Temperature"].mean(), 2),
-                "avg_hum": round(d2["Humidity"].mean(), 2)
-            }
+            "1": module1,
+            "2": module2
         }
     })
 
 
+# -----------------------------------------
+# LIVE IMAGE API (Google Drive)
+# -----------------------------------------
+def fetch_drive_image(folder_id):
+    creds = get_credentials()
+    service = build("drive", "v3", credentials=creds)
+
+    results = service.files().list(
+        q=f"'{folder_id}' in parents",
+        orderBy="createdTime desc",
+        pageSize=1,
+        fields="files(id, name)"
+    ).execute()
+
+    files = results.get("files", [])
+    if not files:
+        return None
+
+    file_id = files[0]["id"]
+
+    request_file = service.files().get_media(fileId=file_id)
+    file_data = BytesIO()
+    downloader = requests.get(
+        f"https://drive.google.com/uc?export=download&id={file_id}",
+        stream=True
+    )
+
+    for chunk in downloader.iter_content(chunk_size=1024):
+        if chunk:
+            file_data.write(chunk)
+
+    file_data.seek(0)
+    return file_data
+
+
 @app.route("/api/live-image")
-def api_image():
-
+def live_image():
     folder = request.args.get("folder")
+    img = fetch_drive_image(folder)
 
-    if folder == DRIVE_FOLDER_M1:
-        img = get_latest_image(DRIVE_FOLDER_M1)
-
-    elif folder == DRIVE_FOLDER_M2:
-        img = get_latest_image(DRIVE_FOLDER_M2)
-
-    else:
-        abort(400, "Invalid folder")
+    if img is None:
+        return "No image", 404
 
     return send_file(img, mimetype="image/jpeg")
 
 
-# ================= MAIN ROUTE ==================
-
+# -----------------------------------------
+# UI ROUTE
+# -----------------------------------------
 @app.route("/")
-def home():
+def index():
     return render_template("index.html")
 
 
-# ================= RUN ==================
-
+# -----------------------------------------
+# MAIN
+# -----------------------------------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)
